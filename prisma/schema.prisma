@@ -1,0 +1,68 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+}
+
+// Modelo para los niveles de clientes (VIP, Premium, Básico, etc.)
+model CustomerTier {
+  id                 String   @id @default(uuid())
+  shop               String   // Tienda a la que pertenece
+  name               String   // Nombre del nivel (ej: "VIP", "Premium")
+  description        String?  // Descripción opcional
+  minSpent           Float    @default(0) // Gasto mínimo para alcanzar este nivel
+  minOrders          Int      @default(0) // Número mínimo de pedidos
+  discountPercentage Float    @default(0) // Porcentaje de descuento (ej: 10 = 10%)
+  active             Boolean  @default(true) // Si el nivel está activo
+  priority           Int      @default(0) // Prioridad (mayor número = mayor nivel)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relación: un nivel puede tener muchas asignaciones
+  assignments        CustomerTierAssignment[]
+
+  @@index([shop])
+}
+
+// Modelo para asignar niveles a clientes específicos
+model CustomerTierAssignment {
+  id         String   @id @default(uuid())
+  shop       String   // Tienda a la que pertenece
+  customerId String   // ID del cliente en Shopify (formato: gid://shopify/Customer/123)
+  tierId     String   // Referencia al CustomerTier
+  assignedAt DateTime @default(now())
+
+  // Relación: cada asignación pertenece a un nivel
+  tier       CustomerTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
+
+  @@unique([shop, customerId]) // Un cliente solo puede tener un nivel por tienda
+  @@index([shop])
+  @@index([customerId])
+}
