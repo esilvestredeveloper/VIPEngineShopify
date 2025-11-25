@@ -16,6 +16,18 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
+  webhooks: {
+    ORDERS_CREATE: {
+      deliveryMethod: "http",
+      callbackUrl: "/webhooks/orders/create",
+    },
+  },
+  hooks: {
+    afterAuth: async ({ session }) => {
+      // Registrar webhooks después de la autenticación
+      shopify.registerWebhooks({ session });
+    },
+  },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),

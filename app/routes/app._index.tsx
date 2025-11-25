@@ -121,8 +121,8 @@ export default function Index() {
               <s-paragraph>
                 Asigna manualmente niveles a tus clientes.
               </s-paragraph>
-              <s-button disabled>
-                Próximamente
+              <s-button href="/app/assignments">
+                Gestionar asignaciones
               </s-button>
             </s-stack>
           </s-box>

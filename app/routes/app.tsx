@@ -19,7 +19,9 @@ export default function App() {
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
         <s-link href="/app">Home</s-link>
-        <s-link href="/app/tiers">Niveles de Clientes</s-link>
+        <s-link href="/app/tiers">Niveles</s-link>
+        <s-link href="/app/assignments">Asignaciones</s-link>
+        <s-link href="/app/sync">Sincronización</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>
