@@ -16,12 +16,7 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
-  webhooks: {
-    ORDERS_CREATE: {
-      deliveryMethod: "http",
-      callbackUrl: "/webhooks/orders/create",
-    },
-  },
+  // Los webhooks se configuran en shopify.app.toml
   hooks: {
     afterAuth: async ({ session }) => {
       // Registrar webhooks después de la autenticación

@@ -35,9 +35,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const action = formData.get("action");
 
+  console.log(`[Sync] Action requested: ${action} for shop ${session.shop}`);
+
   if (action === "recalculate") {
     try {
+      console.log("[Sync] Starting tier recalculation...");
       const result = await recalculateAllTiers(admin, session.shop);
+      console.log("[Sync] Recalculation completed:", result);
       return {
         success: true,
         type: "recalculate",
@@ -45,18 +49,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         data: result,
       };
     } catch (error) {
-      console.error("Error recalculando niveles:", error);
+      console.error("[Sync] Error recalculando niveles:", error);
       return {
         success: false,
         type: "recalculate",
         message: error instanceof Error ? error.message : "Error desconocido",
+        data: { error: String(error) },
       };
     }
   }
 
   if (action === "sync") {
     try {
+      console.log("[Sync] Starting Shopify sync...");
       const result = await syncAllCustomersToShopify(admin, session.shop);
+      console.log("[Sync] Sync completed:", result);
       return {
         success: true,
         type: "sync",
@@ -64,15 +71,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         data: result,
       };
     } catch (error) {
-      console.error("Error sincronizando con Shopify:", error);
+      console.error("[Sync] Error sincronizando con Shopify:", error);
       return {
         success: false,
         type: "sync",
         message: error instanceof Error ? error.message : "Error desconocido",
+        data: { error: String(error) },
       };
     }
   }
 
+  console.warn(`[Sync] Invalid action: ${action}`);
   return { success: false, message: "Acción no válida" };
 };
 
@@ -232,13 +241,22 @@ export default function SyncPage() {
               </s-stack>
               <Form method="post">
                 <input type="hidden" name="action" value="recalculate" />
-                <s-button
-                  submit
-                  variant="primary"
-                  {...(isRecalculating ? { loading: true } : {})}
+                <button
+                  type="submit"
+                  disabled={isRecalculating}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#008060',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: isRecalculating ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
                 >
                   {isRecalculating ? "Recalculando..." : "Recalcular Todos los Niveles"}
-                </s-button>
+                </button>
               </Form>
             </s-stack>
           </s-box>
@@ -258,13 +276,22 @@ export default function SyncPage() {
               </s-stack>
               <Form method="post">
                 <input type="hidden" name="action" value="sync" />
-                <s-button
-                  submit
-                  variant="secondary"
-                  {...(isSyncing ? { loading: true } : {})}
+                <button
+                  type="submit"
+                  disabled={isSyncing}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#f3f3f3',
+                    color: '#202223',
+                    border: '1px solid #c9cccf',
+                    borderRadius: '4px',
+                    cursor: isSyncing ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
                 >
                   {isSyncing ? "Sincronizando..." : "Sincronizar con Shopify"}
-                </s-button>
+                </button>
               </Form>
             </s-stack>
           </s-box>

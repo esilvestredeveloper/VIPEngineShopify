@@ -13,6 +13,10 @@ interface CustomerStats {
 
 /**
  * Obtiene las estadísticas de un cliente desde Shopify
+ *
+ * IMPORTANTE: Esta función consulta TODOS los pedidos del cliente,
+ * incluyendo pedidos de prueba. Esto es necesario porque Shopify
+ * excluye pedidos de prueba de numberOfOrders y amountSpent.
  */
 export async function getCustomerStats(
   admin: AdminApiContext,
@@ -23,9 +27,19 @@ export async function getCustomerStats(
       query getCustomerStats($id: ID!) {
         customer(id: $id) {
           id
-          numberOfOrders
-          amountSpent {
-            amount
+          orders(first: 250) {
+            edges {
+              node {
+                id
+                totalPriceSet {
+                  shopMoney {
+                    amount
+                  }
+                }
+                displayFinancialStatus
+                cancelledAt
+              }
+            }
           }
         }
       }
@@ -36,15 +50,49 @@ export async function getCustomerStats(
   );
 
   const data = await response.json();
+
+  // Log de errores de GraphQL para debugging
+  if (data.errors) {
+    console.error('[TierAssignment] GraphQL Errors:', JSON.stringify(data.errors, null, 2));
+    throw new Error(`GraphQL Error: ${data.errors[0]?.message || 'Unknown error'}`);
+  }
+
   const customer = data.data?.customer;
 
   if (!customer) {
     throw new Error(`Customer ${customerId} not found`);
   }
 
+  // Calcular manualmente las estadísticas contando TODOS los pedidos
+  let totalSpent = 0;
+  let totalOrders = 0;
+
+  const orders = customer.orders?.edges || [];
+
+  for (const edge of orders) {
+    const order = edge.node;
+
+    // Solo contar pedidos que NO estén cancelados
+    if (!order.cancelledAt) {
+      // Solo contar pedidos pagados o parcialmente pagados
+      // Excluir PENDING, AUTHORIZED (no capturado), VOIDED, etc.
+      const financialStatus = order.displayFinancialStatus;
+      if (
+        financialStatus === "PAID" ||
+        financialStatus === "PARTIALLY_REFUNDED" ||
+        financialStatus === "PARTIALLY_PAID"
+      ) {
+        totalOrders++;
+        totalSpent += parseFloat(order.totalPriceSet?.shopMoney?.amount || "0");
+      }
+    }
+  }
+
+  console.log(`[TierAssignment] Found ${orders.length} total orders for customer, ${totalOrders} are paid (including test orders)`);
+
   return {
-    totalSpent: parseFloat(customer.amountSpent?.amount || "0"),
-    totalOrders: customer.numberOfOrders || 0,
+    totalSpent,
+    totalOrders,
   };
 }
 

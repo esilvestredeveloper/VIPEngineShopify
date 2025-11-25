@@ -25,35 +25,39 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Obtener información de los clientes desde Shopify
   const customerIds = assignments.map((a) => a.customerId);
 
-  let customers: any[] = [];
-  if (customerIds.length > 0) {
-    // GraphQL query para obtener múltiples clientes
-    const idsQuery = customerIds.map((id) => `"${id}"`).join(" OR ");
+  const customers: any[] = [];
 
-    const response = await admin.graphql(
-      `#graphql
-        query getCustomers {
-          customers(first: 250, query: "id:${idsQuery}") {
-            edges {
-              node {
-                id
-                firstName
-                lastName
-                email
-                numberOfOrders
-                amountSpent {
-                  amount
-                  currencyCode
-                }
+  // Obtener información de cada cliente individualmente
+  for (const customerId of customerIds) {
+    try {
+      const response = await admin.graphql(
+        `#graphql
+          query getCustomer($id: ID!) {
+            customer(id: $id) {
+              id
+              firstName
+              lastName
+              email
+              numberOfOrders
+              amountSpent {
+                amount
+                currencyCode
               }
             }
           }
+        `,
+        {
+          variables: { id: customerId },
         }
-      `
-    );
+      );
 
-    const data = await response.json();
-    customers = data.data?.customers?.edges?.map((edge: any) => edge.node) || [];
+      const data = await response.json();
+      if (data.data?.customer) {
+        customers.push(data.data.customer);
+      }
+    } catch (error) {
+      console.error(`Error fetching customer ${customerId}:`, error);
+    }
   }
 
   // Combinar asignaciones con información de clientes

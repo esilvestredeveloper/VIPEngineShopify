@@ -17,10 +17,14 @@ import { syncCustomerTierToShopify } from "../services/shopify-sync.server";
  */
 
 export const action = async ({ request }: ActionFunctionArgs) => {
+  console.log("[Webhook] ========== WEBHOOK RECEIVED ==========");
+  console.log("[Webhook] Time:", new Date().toISOString());
+
   // Autenticar el webhook (verifica firma HMAC automáticamente)
   const { topic, shop, session, admin, payload } = await authenticate.webhook(request);
 
-  console.log(`[Webhook] Received ${topic} for shop ${shop}`);
+  console.log(`[Webhook] Topic: ${topic}`);
+  console.log(`[Webhook] Shop: ${shop}`);
 
   // Verificar que sea el webhook correcto
   if (topic !== "ORDERS_CREATE") {
@@ -33,8 +37,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const order = payload as any;
     const customerId = order.customer?.id;
 
+    console.log(`[Webhook] Order ID: ${order.id || 'unknown'}`);
+    console.log(`[Webhook] Order name: ${order.name || 'unknown'}`);
+    console.log(`[Webhook] Order total: ${order.total_price || 0}`);
+
     if (!customerId) {
-      console.log("[Webhook] Order has no customer, skipping tier assignment");
+      console.log("[Webhook] ⚠️  Order has no customer, skipping tier assignment");
       return new Response("Order has no customer", { status: 200 });
     }
 
@@ -44,29 +52,35 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       ? customerId
       : `gid://shopify/Customer/${customerId}`;
 
-    console.log(`[Webhook] Processing order ${order.id} for customer ${customerGid}`);
+    console.log(`[Webhook] Customer ID (raw): ${customerId}`);
+    console.log(`[Webhook] Customer GID: ${customerGid}`);
 
     // 1. Procesar asignación automática de nivel
+    console.log("[Webhook] 📊 Starting tier assignment...");
     const assignmentResult = await processCustomerTierAssignment(
       admin,
       shop,
       customerGid
     );
 
-    console.log(`[Webhook] Assignment result:`, assignmentResult);
+    console.log(`[Webhook] ✅ Assignment result:`, assignmentResult);
 
     // 2. Sincronizar con Shopify (agregar tags)
     if (assignmentResult.success) {
+      console.log("[Webhook] 🔄 Starting Shopify sync...");
       const syncResult = await syncCustomerTierToShopify(admin, customerGid, shop);
-      console.log(`[Webhook] Sync result:`, syncResult);
+      console.log(`[Webhook] ✅ Sync result:`, syncResult);
     }
 
+    console.log("[Webhook] ========== WEBHOOK COMPLETED ==========\n");
     return new Response("Webhook processed successfully", { status: 200 });
   } catch (error) {
-    console.error("[Webhook] Error processing webhook:", error);
+    console.error("[Webhook] ❌ ERROR processing webhook:", error);
+    console.error("[Webhook] Error stack:", error instanceof Error ? error.stack : 'No stack trace');
 
     // Importante: Devolver 200 incluso si hay error
     // Si devolvemos error, Shopify reintentará el webhook
+    console.log("[Webhook] ========== WEBHOOK FAILED ==========\n");
     return new Response("Webhook received with errors", { status: 200 });
   }
 };
